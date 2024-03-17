@@ -9,12 +9,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
  */
 
-// kind of https://s3.amazonaws.com/wordpress-production/wp-content/uploads/sites/15/2016/04/gantt-updated-dependencies-1024x578.png
-
 const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn }) => {
-    if ((!startDate || !endDate) && !duration) {
-      throw new Exception('Wrong element format: should contain either startDate and duration, or endDate and duration or startDate and endDate');
-    }
+    // if ((!startDate || !endDate) && !duration) {
+    //   throw new Exception('Wrong element format: should contain either startDate and duration, or endDate and duration or startDate and endDate');
+    // }
   
     if (startDate) startDate = moment(startDate);
   
@@ -29,6 +27,8 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
       startDate = moment(endDate);
       startDate.subtract(duration[0], duration[1]);
     }
+    
+    if (!endDate) endDate = moment();
   
     if (!dependsOn)
       dependsOn = [];
@@ -100,6 +100,14 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
     });
   };
   
+  const sortElementsByStartDate = data =>
+    data.sort((e1, e2) => {
+      if (moment(e1.startDate).isBefore(moment(e2.startDate)))
+        return -1;
+      else
+        return 1;
+    });
+  
   const sortElementsByEndDate = data =>
     data.sort((e1, e2) => {
       if (moment(e1.endDate).isBefore(moment(e2.endDate)))
@@ -112,7 +120,7 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
     if (sortMode === 'childrenCount') {
       return sortElementsByChildrenCount(data);
     } else if (sortMode === 'date') {
-      return sortElementsByEndDate(data);
+      return sortElementsByStartDate(data);
     }
   }
   
@@ -130,7 +138,8 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
       d.dependsOn
         .map(parentId => cachedData[parentId])
         .map(parent => {
-          const color = '#' + (Math.max(0.1, Math.min(0.9, Math.random())) * 0xFFF << 0).toString(16);
+          // const color = '#' + (Math.max(0.1, Math.min(0.9, Math.random())) * 0xFFF << 0).toString(16);
+          const color = '#000';
   
           // increase the amount rows occupied by both parent and current element (d)
           storedConnections[parent.id]++;
@@ -143,9 +152,8 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
             d.x, (d.y + (elementHeight / 2)),
             d.x - deltaChildConnections, (d.y + (elementHeight / 2)),
             d.x - deltaChildConnections, (d.y - (elementHeight * 0.25)),
-            parent.xEnd + deltaParentConnections, (d.y - (elementHeight * 0.25)),
-            parent.xEnd + deltaParentConnections, (parent.y + (elementHeight / 2)),
-            parent.xEnd, (parent.y + (elementHeight / 2))
+            (parent.x + (parent.width / 30)), (d.y - (elementHeight * 0.25)),
+            (parent.x + (parent.width / 30)), (parent.y + (elementHeight / 2))
           ];
   
           return {
@@ -170,14 +178,14 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
   
       const tooltip = d.label;
   
-      const singleCharWidth = fontSize * 0.5;
+      const singleCharWidth = fontSize * 0.5 * 2.5;
       const singleCharHeight = fontSize * 0.45;
   
       let label = d.label;
   
-      if (label.length > charWidth) {
-        label = label.split('').slice(0, charWidth - 3).join('') + '...';
-      }
+      // if (label.length > charWidth) {
+      //   label = label.split('').slice(0, charWidth - 3).join('') + '...';
+      // }
   
       const labelX = x + ((width / 2) - ((label.length / 2) * singleCharWidth));
       const labelY = y + ((height / 2) + (singleCharHeight));
@@ -211,7 +219,7 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
     // create data describing connections' lines
     const polylineData = createPolylineData(rectangleData, elementHeight);
   
-    const xAxis = d3.axisBottom(xScale);
+    const xAxis = d3.axisBottom(xScale).ticks(d3.timeYear.every(1)).tickSize(svgHeight-50);
   
     // create container for the data
     const g1 = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
@@ -220,6 +228,7 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
     const barsContainer = g1.append('g').attr('transform', `translate(0,${margin.top})`);
   
     g1.append('g').call(xAxis);
+    g1.selectAll('.tick line').attr('opacity', 0.1)
   
     // create axes
     const bars = barsContainer
@@ -272,7 +281,7 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
     };
   
     const scaleWidth = ((svgOptions && svgOptions.width) || 600) - (margin.left * 2);
-    const scaleHeight = Math.max((svgOptions && svgOptions.height) || 200, data.length * elementHeight * 2) - (margin.top * 2);
+    const scaleHeight = Math.max((svgOptions && svgOptions.height) || 200, data.length * elementHeight * 1.55) - (margin.top * 2);
   
     const svgWidth = scaleWidth + (margin.left * 2);
     const svgHeight = scaleHeight + (margin.top * 2);
@@ -284,7 +293,7 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
     if (typeof(showRelations) === 'undefined') showRelations = true;
   
     data = parseUserData(data); // transform raw user data to valid values
-    data = sortElements(data, sortMode);
+    // data = sortElements(data, sortMode);
   
     const { minStartDate, maxEndDate } = findDateBoundaries(data);
   
@@ -295,46 +304,34 @@ const prepareDataElement = ({ id, label, startDate, endDate, duration, dependsOn
     createChartSVG(data, placeholder, { svgWidth, svgHeight, scaleWidth, elementHeight, scaleHeight, fontSize, minStartDate, maxEndDate, margin, showRelations });
   };
   
-  const data = [{
-    startDate: '2017-02-27',
-    endDate: '2017-03-04',
-    label: 'milestone 01',
-    id: 'm01',
-    dependsOn: []
-  }, {
-    startDate: '2017-02-23',
-    endDate: '2017-03-01',
-    label: 'milestone 06',
-    id: 'm06',
-    dependsOn: ['m01']
-  }, {
-    duration: [7, 'days'],
-    endDate: '2017-03-24',
-    label: 'milestone 02',
-    id: 'm02',
-    dependsOn: ['m04']
-  }, {
-    startDate: '2017-02-27',
-    duration: [12, 'days'],
-    label: 'milestone 03',
-    id: 'm03',
-    dependsOn: ['m01']
-  }, {
-    endDate: '2017-03-17',
-    duration: [5, 'days'],
-    label: 'milestone 04',
-    id: 'm04',
-    dependsOn: ['m01']
-  }];
+  const data = JSON.parse(`
+  {
+    "data": [
+      {
+        "id": "東映アニメーション",
+        "label": "東映アニメーション",
+        "startDate": "1948-01-02"
+      },
+      {
+        "id": "ハテナプロ",
+        "label": "ハテナプロ",
+        "startDate": "1964-01-01",
+        "endDate": "1969-01-01",
+        "dependsOn": [
+          "東映アニメーション"
+        ]
+      }
+    ]
+  }
+  `)["data"];
   
   createGanttChart(document.querySelector('body'), data, {
     elementHeight: 20,
     sortMode: 'date', // alternatively, 'childrenCount'
-    showRelations: false,
+    showRelations: true,
     svgOptions: {
-      width: 1200,
+      width: 2500,
       height: 400,
-      fontSize: 12
+      fontSize: 8
     }
   });
-  

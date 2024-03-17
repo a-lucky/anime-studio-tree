@@ -287,9 +287,9 @@ const createGanttChart = (placeholder, data, { elementHeight, sortMode, showRela
   const svgHeight = scaleHeight + (margin.top * 2);
 
   const fontSize = (svgOptions && svgOptions.fontSize) || 12;
-  
+
   if (!sortMode) sortMode = 'date';
-  
+
   if (typeof(showRelations) === 'undefined') showRelations = true;
 
   data = parseUserData(data); // transform raw user data to valid values
@@ -318,7 +318,7 @@ async function load_data() {
 
     return elems;
   });
-  
+
   return data;
 }
 
@@ -335,6 +335,18 @@ async function draw() {
       fontSize: 8
     }
   });
+
+  function handleZoom(e) {
+    d3.select('svg g').attr('transform', e.transform);
+  }
+
+  const zoom = d3.zoom().on('zoom', handleZoom);
+
+  function initZoom() {
+    d3.select('svg').call(zoom);
+  }
+
+  initZoom();
 }
 
 draw();
